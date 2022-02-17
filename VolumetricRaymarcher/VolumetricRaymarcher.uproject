@@ -1,0 +1,13 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{92BE6C06-40C5-EBBB-B1B5-0A8536950982}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "VolumetricRaymarcher",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
