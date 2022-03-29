@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GlobalShader.h"
+#include "ShaderParameterStruct.h"
+#include "Runtime/RenderCore/Public/PixelShaderUtils.h"
 
 /**
  * 
@@ -13,62 +15,72 @@ class RAYMARCHLIGHTINGPLUGIN_API RayMarcher
 public:
 	RayMarcher();
 	~RayMarcher();
+
+    void RenderTest(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, const FLinearColor& Color);
 };
+
+class FSimpleScreenVertexBuffer : public FVertexBuffer
+{
+public:
+    /** Initialize the RHI for this rendering resource */
+    void InitRHI()
+    {
+        TResourceArray<FFilterVertex, VERTEXBUFFER_ALIGNMENT> Vertices;
+        Vertices.SetNumUninitialized(6);
+
+        Vertices[0].Position = FVector4(-1, 1, 0, 1);
+        Vertices[0].UV = FVector2D(0, 0);
+
+        Vertices[1].Position = FVector4(1, 1, 0, 1);
+        Vertices[1].UV = FVector2D(1, 0);
+
+        Vertices[2].Position = FVector4(-1, -1, 0, 1);
+        Vertices[2].UV = FVector2D(0, 1);
+
+        Vertices[3].Position = FVector4(1, -1, 0, 1);
+        Vertices[3].UV = FVector2D(1, 1);
+
+        // Create vertex buffer. Fill buffer with initial data upon creation
+        FRHIResourceCreateInfo CreateInfo(&Vertices);
+        VertexBufferRHI = RHICreateVertexBuffer(Vertices.GetResourceDataSize(), BUF_Static, CreateInfo);
+    }
+};
+TGlobalResource<FSimpleScreenVertexBuffer> GSimpleScreenVertexBuffer;
 
 
 // This can go on a header or cpp file
 class FVertexShaderDeclaration : public FGlobalShader
 {
-    DECLARE_SHADER_TYPE(FVertexShaderDeclaration, Global);
-
+public:
+    DECLARE_GLOBAL_SHADER(FVertexShaderDeclaration)
+    
     FVertexShaderDeclaration() { }
+
+    // Constructor using an initializer object. We can bind parameters here so that our C++ code
+    // can interface with USF, enabling us to set shader parameters from code.
     FVertexShaderDeclaration(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
         : FGlobalShader(Initializer)
     {
     }
 
-    static bool ShouldCache(EShaderPlatform Platform)
+    static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
     {
         return true;
     }
 };
 
-//class FMyTestPS : public FGlobalShader
-//{
-//    DECLARE_EXPORTED_SHADER_TYPE(FMyTestPS, Global, /*MYMODULE_API*/);
-//
-//    FShaderParameter MyColorParameter;
-//
-//    FMyTestPS() { }
-//    FMyTestPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-//        : FGlobalShader(Initializer)
-//    {
-//        MyColorParameter.Bind(Initializer.ParameterMap, TEXT("MyColor"), SPF_Mandatory);
-//    }
-//
-//    static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
-//    {
-//        FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
-//        // Add your own defines for the shader code
-//        OutEnvironment.SetDefine(TEXT("MY_DEFINE"), 1);
-//    }
-//
-//    static bool ShouldCache(EShaderPlatform Platform)
-//    {
-//        // Could skip compiling for Platform == SP_METAL for example
-//        return true;
-//    }
-//
-//    // FShader interface.
-//    virtual bool Serialize(FArchive& Ar) override
-//    {
-//        bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-//        Ar << MyColorParameter;
-//        return bShaderHasOutdatedParameters;
-//    }
-//
-//    void SetColor(FRHICommandList& RHICmdList, const FLinearColor& Color)
-//    {
-//        SetShaderValue(RHICmdList, GetPixelShader(), MyColorParameter, Color);
-//    }
-//};
+class FPixelShaderDeclaration : public FGlobalShader 
+{
+public:
+    DECLARE_GLOBAL_SHADER(FPixelShaderDeclaration);
+    SHADER_USE_PARAMETER_STRUCT(FPixelShaderDeclaration, FGlobalShader)
+        BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
+        SHADER_PARAMETER(FVector4, Color)
+    END_SHADER_PARAMETER_STRUCT()
+
+
+    static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+    {
+        return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
+    }
+};
